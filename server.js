@@ -3,8 +3,10 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
 const knex = require('knex');
-
-const saltRounds = 10;
+const { handleRegister } = require('./controllers/register');
+const { handleSignIn } = require('./controllers/signin');
+const { handleProfile } = require('./controllers/profile');
+const { handleImage, handleApiCall } = require('./controllers/image');
 
 const db = knex({
 	client: 'pg',
@@ -16,85 +18,19 @@ const db = knex({
 	}
 });
 
-/* db.select('*').from('users').then(data => {
-	console.log(data);
-}); */
-
 const app = express();
 
 app.use(bodyParser.json());
 app.use(cors());
 
-const database = {
-	users: []
+app.get('/', (req, res) => { res.send(db.select('*').from('users')) })
+app.post('/signIn', handleSignIn( db, bcrypt))
+app.post('/register', (req, res) => { handleRegister(req, res, db, bcrypt) });
+app.get('/profile/:id', (req, res) => { handleProfile(req, res, db) });
+app.put('/image', (req, res) => { handleImage(req, res, db) });
+app.post('/imageurl', (req, res) => { handleApiCall(req, res, db) });
 
-}
-
-app.get('/', (req, res) => {
-	res.send(database.users);
-})
-
-app.post('/signIn', (req, res) =>{
-/*bcrypt.compare('apples', '$2b$10$p7D7SmlWSYsF4p7ZUgHkh.DY0ZHFdT2hCVjgKft/mI227bgGKFeuO', function(err, res){
-	console.log('first guess', res)
-})
-
-bcrypt.compare('veggies', '$2b$10$p7D7SmlWSYsF4p7ZUgHkh.DY0ZHFdT2hCVjgKft/mI227bgGKFeuO', function(err, res){
-	console.log('second guess', res)
-})*/
-
-	if(req.body.email === database.users[0].email && 
-		req.body.password === database.users[0].password){
-		res.json(database.users[0]);
-	} else {
-		res.status(400).json('error logging in');
-	}
-})
-
-app.post('/register', (req, res) =>{
-const { email, name, password } = req.body;
-bcrypt.hash(password, saltRounds, function(err, hash){
-	console.log(hash);
-});
-	db('users')
-	 .returning('*')
-	 .insert({
-		email: email,
-		name: name,
-		joined: new Date()
-	}).then(user => {
-		res.json(user[0]);
-	})
-	.catch(err => res.status(400).json('Unable to register'))
-})
-
-app.get('/profile/:id', (req, res) =>{
-	const { id } = req.params;
-	db.select('*').from('users').where('id', id)
-		.then(user => {
-			if(user.length){
-				res.json(user[0]);	
-			} else {
-				res.status(400).json('Not found')
-			}		
-		})
-	 	.catch(err => res.status(400).json('Error getting user'))		
-})
-
-app.put('/image', (req, res) =>{
-	const { id } = req.body;
-	db('users').where('id', id)
-	.increment('entries', 1)
-	.returning('entries')
-	.then(entries  => {
-		res.json(entries[0]);
-	})
-	.catch(err => res.status(400).json('Unable to get entries'));
-})
-
-app.listen(3000, () => {
-	console.log('app is running on port 3000');
-})
+app.listen(3000, () => { console.log('app is running on port 3000') })
 
 /*
 API Endpoints
